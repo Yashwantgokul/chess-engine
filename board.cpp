@@ -13,6 +13,8 @@ char tempBoard[8][8]={
     {'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'},
     {'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'}
 };
+int whitekingrow = 7, whitekingcol = 4;
+int blackkingrow = 0, blackkingcol = 4;
 void initializeBoard() {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {

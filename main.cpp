@@ -39,8 +39,23 @@ int main() {
             cout << "Invalid move. Try again." << endl;
             continue;
         }
+        char tp=board[tx][ty];
         board[tx][ty] = board[fx][fy];
         board[fx][fy] = '.';
+        if(ischeck(whiteturn)){
+            cout<<"The king is in check/pinned!"<<endl;
+            board[fx][fy] = board[tx][ty];
+            board[tx][ty] = tp;
+            continue;
+        }
+        if(piece == 'K') {
+            whitekingrow = tx;
+            whitekingcol = ty;
+        }
+        if(piece == 'k') {
+            blackkingrow = tx;
+            blackkingcol = ty;
+        }
         whiteturn = !whiteturn;
     }
     return 0;

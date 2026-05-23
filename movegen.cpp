@@ -14,7 +14,7 @@ bool kingmove(int fx, int fy, int tx, int ty);
 bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
-    if (piece == ' ' || (isupper(piece) && isupper(target)) || (islower(piece) && islower(target))) {
+    if (piece == '.' || (isupper(piece) && isupper(target)) || (islower(piece) && islower(target))) {
         return false;
     }
     if(piece=='P'){
@@ -108,4 +108,62 @@ bool queenmove(int fx, int fy, int tx, int ty) {
 }
 bool kingmove(int fx, int fy, int tx, int ty) {
     return abs(fx - tx) <= 1 && abs(fy - ty) <= 1;
+}
+bool whitepawnattack(int fx, int fy, int tx, int ty) {
+    return (tx == fx - 1 && abs(fy - ty) == 1);
+}
+bool blackpawnattack(int fx, int fy, int tx, int ty) {
+    return (tx == fx + 1 && abs(fy - ty) == 1);
+}
+bool pieceattack(int fx, int fy, int tx, int ty) {
+    char piece = board[fx][fy];
+    if(piece=='P'||piece=='p'){
+        return (isupper(piece) && whitepawnattack(fx, fy, tx, ty)) || (islower(piece) && blackpawnattack(fx, fy, tx, ty));
+    }
+    if(piece=='B'||piece=='b'){
+        return bishopmove(fx, fy, tx, ty);
+    }
+    if(piece=='R'||piece=='r'){
+        return rookmove(fx, fy, tx, ty);
+    }
+    if(piece=='N'||piece=='n'){
+        return knightmove(fx, fy, tx, ty);
+    }
+    if(piece=='Q'||piece=='q'){
+        return queenmove(fx, fy, tx, ty);
+    }
+    if(piece=='K'||piece=='k'){
+        return kingmove(fx, fy, tx, ty);
+    }
+    return false;
+}
+int kingrow, kingcol;
+bool ischeck(int side) {
+    // Implement check detection logic here
+    if(side == 1) {
+        // Check if White's king is in check
+        kingrow = whitekingrow;
+        kingcol = whitekingcol;
+    } else {
+        // Check if Black's king is in check
+        kingrow = blackkingrow;
+        kingcol = blackkingcol;
+    }
+    bool enemy=!side;
+    for(int i=0;i<8;i++){
+        for(int j=0;j<8;j++){
+            //check for every enemy's piece, whether it attack the king or not
+            if(side==0 && isupper(board[i][j]) && board[i][j]!='.'){
+                if(pieceattack(i,j,kingrow,kingcol)){
+                    return true;
+                }
+            }
+            if(side==1 && islower(board[i][j]) && board[i][j]!='.'){
+                if(pieceattack(i,j,kingrow,kingcol)){
+                    return true;
+                }
+            }
+        }
+    }
+    return false; // Placeholder for check detection
 }

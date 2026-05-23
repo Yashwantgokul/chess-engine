@@ -6,5 +6,6 @@ extern char board[8][8];
 void initializeBoard();
 
 void printBoard();
-
+extern int whitekingrow, whitekingcol;
+extern int blackkingrow, blackkingcol;
 #endif
