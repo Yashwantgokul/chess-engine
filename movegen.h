@@ -11,4 +11,7 @@ struct Move
 std::vector<Move> generatemoves(int side);
 void makemove(Move m);
 void undomove(Move m);
+int evaluate();
+int minimax(int depth, bool white); 
+Move findbestmove(bool white,int depth);
 #endif

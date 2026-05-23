@@ -5,58 +5,63 @@
 using namespace std;
 int main() {
     initializeBoard();
-    int whiteturn = 1;
+    bool whiteturn = true;
     while (true) {
         
         printBoard();
         string move;
         if(whiteturn) {
             cout << "White's turn." << endl;
-        } else {            cout << "Black's turn." << endl;
+            cout << "Enter your move (e.g., e2e4): ";
+            cin >> move;
+            if (move == "exit") {
+                break;
+            }
+            if(move.length()!=4){
+                cout<<"Invalid format!"<<endl;
+                continue;
+            }
+            int fy = move[0] - 'a';
+            int fx = 8 - (move[1] - '0');
+
+            int ty = move[2] - 'a';
+            int tx = 8 - (move[3] - '0');
+            char piece = board[fx][fy];
+            if(islower(piece)){
+                cout<<"It's Black piece!"<<endl;
+                continue;
+            }
+            if(!islegalmove(fx, fy, tx, ty)){
+                cout<<"Illegal move!"<<endl;
+                continue;
+            }
+            Move m;
+            m.fx=fx;
+            m.fy=fy;
+            m.tx=tx;
+            m.ty=ty;
+            m.cpiece=board[tx][ty];
+            makemove(m);
+            whiteturn=!whiteturn;
+        }
+        else{
+            cout << "Computer's turn." << endl;
+            Move bestmove = findbestmove(false, 3);
+            if(bestmove.fx==-1){
+                if(ischeck(0)){
+                    cout<<"Checkmate! White wins!"<<endl;
+                }
+                else{
+                    cout<<"Stalemate!"<<endl;
+                }
+                break;
+            }
+            makemove(bestmove);
+            cout << "Computer moves: " << char(bestmove.fy + 'a') << (8 - bestmove.fx) << char(bestmove.ty + 'a') << (8 - bestmove.tx) << endl;
+            whiteturn=!whiteturn;
+
         }
         
-        cout << "Enter your move (e.g., e2e4): ";
-        cin >> move;
-        if (move == "exit") {
-            break;
-        }
-        int fy = move[0] - 'a';
-        int fx = 8 - (move[1] - '0');
-
-        int ty = move[2] - 'a';
-        int tx = 8 - (move[3] - '0');
-        char piece = board[fx][fy];
-        if(whiteturn && islower(piece)){
-            cout<<"It's White's turn!"<<endl;
-            continue;
-        }
-
-        if(!whiteturn && isupper(piece)){
-            cout<<"It's Black's turn!"<<endl;
-            continue;
-        }
-        if(piece == ' ' || (isupper(piece) && isupper(board[tx][ty])) || (islower(piece) && islower(board[tx][ty]))||!islegalmove(fx, fy, tx, ty)) {
-            cout << "Invalid move. Try again." << endl;
-            continue;
-        }
-        char tp=board[tx][ty];
-        board[tx][ty] = board[fx][fy];
-        board[fx][fy] = '.';
-        if(ischeck(whiteturn)){
-            cout<<"The king is in check/pinned!"<<endl;
-            board[fx][fy] = board[tx][ty];
-            board[tx][ty] = tp;
-            continue;
-        }
-        if(piece == 'K') {
-            whitekingrow = tx;
-            whitekingcol = ty;
-        }
-        if(piece == 'k') {
-            blackkingrow = tx;
-            blackkingcol = ty;
-        }
-        whiteturn = !whiteturn;
     }
     return 0;
 }

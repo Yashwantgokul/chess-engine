@@ -18,7 +18,7 @@ bool islegalmove(int fx, int fy, int tx, int ty) {
     char target = board[tx][ty];
     bool valid = false;
     if (piece == '.' || (isupper(piece) && isupper(target)) || (islower(piece) && islower(target))) {
-        valid=false;
+        return false;
     }
     if(piece=='P'){
         valid=whitepawnmove(fx, fy, tx, ty);
@@ -66,6 +66,7 @@ bool islegalmove(int fx, int fy, int tx, int ty) {
     whitekingrow = oldwhitekingrow;
     whitekingcol = oldwhitekingcol;
     blackkingrow = oldblackkingrow;
+    blackkingcol = oldblackkingcol;
     return !illegal;
     
 }
@@ -270,4 +271,56 @@ int evaluate(){
         }
     }
     return score;
+}
+int minimax(int depth, bool white){
+    if(depth==0){
+        return evaluate();
+    }
+    vector<Move> moves = generatemoves(white);
+    if(moves.empty()){
+        if(ischeck(white?1:0)){
+            return white?-1000000:1000000; // Checkmate
+        }
+        return 0; // Stalemate
+    }
+    if(white){
+        int maxi=-1000000;
+        for(Move m : moves){
+            makemove(m);
+            int score=minimax(depth-1,false);
+            undomove(m);
+            maxi=max(maxi,score);
+        }
+        return maxi;
+    } 
+    else {
+        int mini=1000000;
+        for(Move m : moves){
+            makemove(m);
+            int score=minimax(depth-1,true);
+            undomove(m);
+            mini=min(mini,score);
+        }
+        return mini;
+    }
+}
+Move findbestmove(bool white,int depth){
+    vector<Move> moves = generatemoves(white);
+    if(moves.empty()){
+        Move m;
+        m.fx=-1; // No move available
+        return m;
+    }
+    Move bestmove;
+    int bestscore = white ? -1000000 : 1000000;
+    for(Move m : moves){
+        makemove(m);
+        int score=minimax(depth-1,!white);
+        undomove(m);
+        if((white && score > bestscore) || (!white && score < bestscore)){
+            bestscore = score;
+            bestmove = m;
+        }
+    }
+    return bestmove;
 }
