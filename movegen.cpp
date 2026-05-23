@@ -2,8 +2,10 @@
 #include "board.h"
 #include <cmath>
 #include <cctype>
-
+#include <vector>
 using namespace std;
+void makemove(Move m);
+void undomove(Move m);
 bool whitepawnmove(int fx, int fy, int tx, int ty);
 bool blackpawnmove(int fx, int fy, int tx, int ty);
 bool bishopmove(int fx, int fy, int tx, int ty);
@@ -14,32 +16,57 @@ bool kingmove(int fx, int fy, int tx, int ty);
 bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
+    bool valid = false;
     if (piece == '.' || (isupper(piece) && isupper(target)) || (islower(piece) && islower(target))) {
-        return false;
+        valid=false;
     }
     if(piece=='P'){
-        return whitepawnmove(fx, fy, tx, ty);
+        valid=whitepawnmove(fx, fy, tx, ty);
     }
     if(piece=='p'){
-        return blackpawnmove(fx, fy, tx, ty);
+        valid=blackpawnmove(fx, fy, tx, ty);
     }
     if(piece=='B'||piece=='b'){
-        return bishopmove(fx, fy, tx, ty);
+        valid=bishopmove(fx, fy, tx, ty);
     }
     if(piece=='R'||piece=='r'){
-        return rookmove(fx, fy, tx, ty);
+        valid=rookmove(fx, fy, tx, ty);
     }
     if(piece=='N'||piece=='n'){
-        return knightmove(fx, fy, tx, ty);
+        valid=knightmove(fx, fy, tx, ty);
     }
     if(piece=='Q'||piece=='q'){
-        return queenmove(fx, fy, tx, ty);
+        valid=queenmove(fx, fy, tx, ty);
     }
     if(piece=='K'||piece=='k'){
-        return kingmove(fx, fy, tx, ty);
+        valid=kingmove(fx, fy, tx, ty);
     }
     // Add specific move rules for each piece type here
-    return true; // Placeholder for legal move checking
+    if(!valid) // Placeholder for legal move checking
+        return false;
+    char captured = board[tx][ty];
+    board[tx][ty] = piece;
+    board[fx][fy] = '.';
+    int oldwhitekingrow = whitekingrow, oldwhitekingcol = whitekingcol;
+    int oldblackkingrow = blackkingrow, oldblackkingcol = blackkingcol;
+    if(piece == 'K') {
+        whitekingrow = tx;
+        whitekingcol = ty;
+    }
+    if(piece == 'k') {
+        blackkingrow = tx;
+        blackkingcol = ty;
+    }
+    bool illegal=false;
+    if(ischeck(isupper(piece)?1:0)){
+        illegal=true;
+    }
+    board[fx][fy] = piece;
+    board[tx][ty] = captured;
+    whitekingrow = oldwhitekingrow;
+    whitekingcol = oldwhitekingcol;
+    blackkingrow = oldblackkingrow;
+    return !illegal;
     
 }
 bool whitepawnmove(int fx, int fy, int tx, int ty) {
@@ -166,4 +193,81 @@ bool ischeck(int side) {
         }
     }
     return false; // Placeholder for check detection
+}
+std::vector<Move> generatemoves(int side) {
+    std::vector<Move> moves;
+    for(int i=0;i<8;i++){//i,j is from ; x,y is to
+        for(int j=0;j<8;j++){
+            char piece=board[i][j];
+            if(piece=='.')
+                continue;
+            if(side==1&&!isupper(piece))
+                continue;
+            if(side==0&&isupper(piece))
+                continue;
+            for(int x=0;x<8;x++){
+                for(int y=0;y<8;y++){
+                    if(x==i&&y==j)
+                        continue;
+                    if(islegalmove(i,j,x,y)){
+                        Move m;
+                        m.fx=i;
+                        m.fy=j;
+                        m.tx=x;
+                        m.ty=y;
+                        m.cpiece=board[x][y];
+                        moves.push_back(m);
+                    }
+                }
+            }
+        }
+    }
+    return moves;
+}
+void makemove(Move m){
+    char piece=board[m.fx][m.fy];
+    board[m.tx][m.ty]=piece;
+    board[m.fx][m.fy]='.';
+    if(piece=='K'){ 
+        whitekingrow = m.tx;
+        whitekingcol = m.ty;
+    }
+    if(piece=='k'){ 
+        blackkingrow = m.tx;
+        blackkingcol = m.ty;
+    }
+}
+void undomove(Move m){
+    char piece=board[m.tx][m.ty];
+    board[m.fx][m.fy]=piece;
+    board[m.tx][m.ty]=m.cpiece;
+    if(piece=='K'){ 
+        whitekingrow = m.fx;
+        whitekingcol = m.fy;
+    }
+    if(piece=='k'){ 
+        blackkingrow = m.fx;
+        blackkingcol = m.fy;
+    }
+}
+int evaluate(){
+    int score=0;
+    for(int i=0;i<8;i++){
+        for(int j=0;j<8;j++){
+            char piece=board[i][j];
+            if(piece=='.')
+                continue;
+            int value=0;
+            switch(toupper(piece)){
+                case 'P': value=100; break;
+                case 'N': value=320; break;
+                case 'B': value=330; break;
+                case 'R': value=500; break;
+                case 'Q': value=900; break;
+                case 'K': value=200000; break;
+            }
+            score+=(isupper(piece)?value:-value);
+        }
+    }
+    return score;
 }
