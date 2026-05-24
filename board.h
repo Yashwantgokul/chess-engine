@@ -8,4 +8,7 @@ void initializeBoard();
 void printBoard();
 extern int whitekingrow, whitekingcol;
 extern int blackkingrow, blackkingcol;
+extern bool whitekingmoved, blackkingmoved;
+extern bool whiteleftrookmoved, whiterightrookmoved;
+extern bool blackleftrookmoved, blackrightrookmoved;
 #endif

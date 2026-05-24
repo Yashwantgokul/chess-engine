@@ -288,6 +288,14 @@ int minimax(int depth, bool white){
         for(Move m : moves){
             makemove(m);
             int score=minimax(depth-1,false);
+            if(ischeck(0)){
+                vector<Move> replyMoves = generatemoves(false);
+                if(replyMoves.empty()){
+                    score = 1000000;
+                } else {
+                    score += 50;
+                }
+            }
             undomove(m);
             maxi=max(maxi,score);
         }
@@ -298,6 +306,14 @@ int minimax(int depth, bool white){
         for(Move m : moves){
             makemove(m);
             int score=minimax(depth-1,true);
+            if(ischeck(1)){
+                vector<Move> replyMoves = generatemoves(true);
+                if(replyMoves.empty()){
+                    score = -1000000;
+                } else {
+                    score -= 50;
+                }
+            }
             undomove(m);
             mini=min(mini,score);
         }
@@ -316,6 +332,14 @@ Move findbestmove(bool white,int depth){
     for(Move m : moves){
         makemove(m);
         int score=minimax(depth-1,!white);
+        if(white ? ischeck(0) : ischeck(1)){
+            vector<Move> replyMoves = generatemoves(white ? false : true);
+            if(replyMoves.empty()){
+                score = white ? 1000000 : -1000000;
+            } else {
+                score += white ? 50 : -50;
+            }
+        }
         undomove(m);
         if((white && score > bestscore) || (!white && score < bestscore)){
             bestscore = score;

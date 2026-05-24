@@ -6,10 +6,86 @@
 #include "ui_mainwindow.h"
 #include "board.h"
 #include "movegen.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QDirIterator>
+#include <QIcon>
 #include <QMessageBox>
 #include <QGridLayout>
+#include <QHash>
 #include <QPushButton>
-#include <QFont>
+#include <QSize>
+
+namespace {
+
+QString findPieceIconFile(char piece)
+{
+    static QHash<char, QString> cachedPaths;
+
+    const auto cached = cachedPaths.constFind(piece);
+    if(cached != cachedPaths.constEnd())
+    {
+        return cached.value();
+    }
+
+    const QString iconName = [piece]() -> QString {
+        switch(piece)
+        {
+        case 'K': return "wk.svg";
+        case 'Q': return "wq.svg";
+        case 'R': return "wr.svg";
+        case 'B': return "wb.svg";
+        case 'N': return "wn.svg";
+        case 'P': return "wp.svg";
+        case 'k': return "bk.svg";
+        case 'q': return "bq.svg";
+        case 'r': return "br.svg";
+        case 'b': return "bb.svg";
+        case 'n': return "bn.svg";
+        case 'p': return "bp.svg";
+        default: return QString();
+        }
+    }();
+
+    if(iconName.isEmpty())
+    {
+        return QString();
+    }
+
+    QStringList searchRoots;
+    QDir directory(QCoreApplication::applicationDirPath());
+
+    for(int i = 0; i < 5 && directory.exists(); ++i)
+    {
+        searchRoots.append(directory.absolutePath());
+        if(!directory.cdUp())
+        {
+            break;
+        }
+    }
+
+    searchRoots.append(QDir::currentPath());
+
+    for(const QString &rootPath : searchRoots)
+    {
+        QDirIterator iterator(rootPath,
+                              QStringList() << iconName,
+                              QDir::Files,
+                              QDirIterator::Subdirectories);
+
+        if(iterator.hasNext())
+        {
+            const QString resolvedPath = iterator.next();
+            cachedPaths.insert(piece, resolvedPath);
+            return resolvedPath;
+        }
+    }
+
+    cachedPaths.insert(piece, QString());
+    return QString();
+}
+
+}
 // ============================================
 // CONSTRUCTOR
 // ============================================
@@ -69,14 +145,7 @@ void MainWindow::createBoard()
             QPushButton *button = new QPushButton();
 
             button->setFixedSize(80,80);
-
-            QFont font;
-
-            font.setPointSize(34);
-
-            font.setBold(true);
-
-            button->setFont(font);
+            button->setIconSize(QSize(64, 64));
 
             // STORE BUTTON
             squares[row][col] = button;
@@ -111,7 +180,6 @@ void MainWindow::resetBoardColors()
                 squares[row][col]->setStyleSheet(
                     "background-color: #F0D9B5;"
                     "border:none;"
-                    "font-size:34px;"
                     );
             }
             else
@@ -120,7 +188,6 @@ void MainWindow::resetBoardColors()
                 squares[row][col]->setStyleSheet(
                     "background-color: #B58863;"
                     "border:none;"
-                    "font-size:34px;"
                     );
             }
         }
@@ -137,9 +204,20 @@ void MainWindow::drawBoard()
     {
         for(int col = 0; col < 8; col++)
         {
-            squares[row][col]->setText(
-                getPieceUnicode(board[row][col])
-                );
+            QPushButton *button = squares[row][col];
+            const QString iconPath = getPieceIconPath(board[row][col]);
+
+            button->setText(QString());
+            button->setIcon(QIcon());
+
+            if(!iconPath.isEmpty())
+            {
+                button->setIcon(QIcon(iconPath));
+            }
+            else
+            {
+                button->setText(getPieceUnicode(board[row][col]));
+            }
         }
     }
 }
@@ -168,6 +246,15 @@ QString MainWindow::getPieceUnicode(char piece)
 
     default: return "";
     }
+}
+
+// ============================================
+// PIECE TO ICON PATH
+// ============================================
+
+QString MainWindow::getPieceIconPath(char piece)
+{
+    return findPieceIconFile(piece);
 }
 
 // ============================================
@@ -213,7 +300,6 @@ void MainWindow::handleSquareClick()
         squares[row][col]->setStyleSheet(
             "background-color: yellow;"
             "border:none;"
-            "font-size:34px;"
             );
     }
 

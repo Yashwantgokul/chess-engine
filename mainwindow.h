@@ -56,6 +56,8 @@ private:
     void resetBoardColors();
 
     QString getPieceUnicode(char piece);
+
+    QString getPieceIconPath(char piece);
 };
 
 #endif // MAINWINDOW_H

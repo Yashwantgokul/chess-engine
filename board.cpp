@@ -15,6 +15,9 @@ char tempBoard[8][8]={
 };
 int whitekingrow = 7, whitekingcol = 4;
 int blackkingrow = 0, blackkingcol = 4;
+bool whitekingmoved=false, blackkingmoved=false;
+bool whiteleftrookmoved=false, whiterightrookmoved=false;
+bool blackleftrookmoved=false, blackrightrookmoved=false;
 void initializeBoard() {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
