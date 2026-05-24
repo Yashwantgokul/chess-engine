@@ -13,7 +13,6 @@ bool rookmove(int fx, int fy, int tx, int ty);
 bool knightmove(int fx, int fy, int tx, int ty);
 bool queenmove(int fx, int fy, int tx, int ty); 
 bool kingmove(int fx, int fy, int tx, int ty);
-static int minimaxAlphaBeta(int depth, bool white, int alpha, int beta);
 bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
@@ -274,10 +273,6 @@ int evaluate(){
     return score;
 }
 int minimax(int depth, bool white){
-    return minimaxAlphaBeta(depth, white, -1000000, 1000000);
-}
-
-static int minimaxAlphaBeta(int depth, bool white, int alpha, int beta){
     if(depth==0){
         return evaluate();
     }
@@ -292,13 +287,9 @@ static int minimaxAlphaBeta(int depth, bool white, int alpha, int beta){
         int maxi=-1000000;
         for(Move m : moves){
             makemove(m);
-            int score=minimaxAlphaBeta(depth-1,false,alpha,beta);
+            int score=minimax(depth-1,false);
             undomove(m);
             maxi=max(maxi,score);
-            alpha=max(alpha,maxi);
-            if(alpha>=beta){
-                break;
-            }
         }
         return maxi;
     } 
@@ -306,13 +297,9 @@ static int minimaxAlphaBeta(int depth, bool white, int alpha, int beta){
         int mini=1000000;
         for(Move m : moves){
             makemove(m);
-            int score=minimaxAlphaBeta(depth-1,true,alpha,beta);
+            int score=minimax(depth-1,true);
             undomove(m);
             mini=min(mini,score);
-            beta=min(beta,mini);
-            if(alpha>=beta){
-                break;
-            }
         }
         return mini;
     }
@@ -322,17 +309,13 @@ Move findbestmove(bool white,int depth){
     if(moves.empty()){
         Move m;
         m.fx=-1; // No move available
-        m.fy=-1;
-        m.tx=-1;
-        m.ty=-1;
-        m.cpiece='.';
         return m;
     }
     Move bestmove;
     int bestscore = white ? -1000000 : 1000000;
     for(Move m : moves){
         makemove(m);
-        int score=minimaxAlphaBeta(depth-1,!white,-1000000,1000000);
+        int score=minimax(depth-1,!white);
         undomove(m);
         if((white && score > bestscore) || (!white && score < bestscore)){
             bestscore = score;

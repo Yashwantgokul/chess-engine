@@ -242,21 +242,6 @@ void MainWindow::handleSquareClick()
             // PLAYER MOVE
             makemove(m);
             drawBoard();
-
-            auto blackMovesAfterPlayer = generatemoves(false);
-            if(blackMovesAfterPlayer.empty())
-            {
-                if(ischeck(0)){
-                    QMessageBox::information(this, "Game Over", "Checkmate — You win!");
-                } else {
-                    QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
-                }
-                selectedRow = -1;
-                selectedCol = -1;
-                resetBoardColors();
-                return;
-            }
-
             // COMPUTER MOVE
             Move bestmove = findbestmove(false,3);
             if(bestmove.fx == -1)
