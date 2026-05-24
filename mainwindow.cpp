@@ -252,6 +252,10 @@ void MainWindow::handleSquareClick()
                 } else {
                     QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
                 }
+                selectedRow = -1;
+                selectedCol = -1;
+                resetBoardColors();
+                return;
             }
             else
             {
@@ -265,6 +269,10 @@ void MainWindow::handleSquareClick()
                     } else {
                         QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
                     }
+                    selectedRow = -1;
+                    selectedCol = -1;
+                    resetBoardColors();
+                    return;
                 }
             }
         }

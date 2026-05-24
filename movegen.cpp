@@ -177,7 +177,7 @@ bool ischeck(int side) {
         kingrow = blackkingrow;
         kingcol = blackkingcol;
     }
-    bool enemy=!side;
+
     for(int i=0;i<8;i++){
         for(int j=0;j<8;j++){
             //check for every enemy's piece, whether it attack the king or not
@@ -284,7 +284,7 @@ int minimax(int depth, bool white){
         return 0; // Stalemate
     }
     if(white){
-        int maxi=-1000000;
+        int maxi=-1000001;
         for(Move m : moves){
             makemove(m);
             int score=minimax(depth-1,false);
@@ -294,7 +294,7 @@ int minimax(int depth, bool white){
         return maxi;
     } 
     else {
-        int mini=1000000;
+        int mini=1000001;
         for(Move m : moves){
             makemove(m);
             int score=minimax(depth-1,true);
@@ -311,7 +311,7 @@ Move findbestmove(bool white,int depth){
         m.fx=-1; // No move available
         return m;
     }
-    Move bestmove;
+    Move bestmove = moves[0];
     int bestscore = white ? -1000000 : 1000000;
     for(Move m : moves){
         makemove(m);
