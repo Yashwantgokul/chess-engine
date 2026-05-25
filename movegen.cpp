@@ -280,8 +280,7 @@ int evaluate(){
 namespace {
 constexpr int kMateScore = 1000000;
 }
-
-int minimax(int depth, bool white){
+int alphabeta(int depth,int alpha, int beta, bool white){
     vector<Move> moves = generatemoves(white);
     if(moves.empty()){
         if(ischeck(white?1:0)){
@@ -298,9 +297,13 @@ int minimax(int depth, bool white){
         int maxi = -kMateScore - 1;
         for(Move m : moves){
             makemove(m);
-            int score = minimax(depth-1,false);
+            int score = alphabeta(depth-1, alpha, beta, false);
             undomove(m);
-            maxi = max(maxi,score);
+            maxi = max(maxi, score);
+            alpha = max(alpha, score);
+            if(beta <= alpha){
+                break;
+            }
         }
         return maxi;
     } 
@@ -308,9 +311,13 @@ int minimax(int depth, bool white){
         int mini = kMateScore + 1;
         for(Move m : moves){
             makemove(m);
-            int score = minimax(depth-1,true);
+            int score = alphabeta(depth-1, alpha, beta, true);
             undomove(m);
             mini = min(mini,score);
+            beta = min(beta, score);
+            if(beta <= alpha){
+                break;
+            }
         }
         return mini;
     }
@@ -326,7 +333,7 @@ Move findbestmove(bool white,int depth){
     int bestscore = white ? (-kMateScore - 1) : (kMateScore + 1);
     for(Move m : moves){
         makemove(m);
-        int score = minimax(depth-1,!white);
+        int score = alphabeta(depth-1, -kMateScore - 1, kMateScore + 1, !white);
         undomove(m);
         if((white && score > bestscore) || (!white && score < bestscore)){
             bestscore = score;
