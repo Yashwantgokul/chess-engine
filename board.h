@@ -9,6 +9,7 @@ void printBoard();
 extern int whitekingrow, whitekingcol;
 extern int blackkingrow, blackkingcol;
 extern bool whitekingmoved, blackkingmoved;
-extern bool whiteleftrookmoved, whiterightrookmoved;
-extern bool blackleftrookmoved, blackrightrookmoved;
+extern bool whitequeenrookmoved, whitekingrookmoved;
+extern bool blackqueenrookmoved, blackkingrookmoved;
+extern int enpassantrow, enpassantcol;
 #endif

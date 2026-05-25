@@ -109,7 +109,7 @@ private:
     void initializeSounds();
     void refreshAudioOutputDevice();
     void runComputerTurn();
-    void applyComputerMove(const Move &bestmove);
+    void applyComputerMove(Move &bestmove);
     void playMoveSound(char capturedPiece, bool gaveCheck);
     QString getPieceUnicode(char piece);
     QString getPieceIconPath(char piece);

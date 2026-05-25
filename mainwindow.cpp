@@ -72,7 +72,7 @@ void SoundPool::play()
 
 void SoundPool::setAudioDevice(const QAudioDevice &device)
 {
-    for(QSoundEffect *sfx : players)
+    for(QSoundEffect * &sfx : players)
     {
         sfx->setAudioDevice(device);
     }
@@ -283,7 +283,7 @@ void MainWindow::runComputerTurn()
             return;
         }
 
-        const Move bestmove = computerMoveWatcher->result();
+        Move bestmove = computerMoveWatcher->result();
         computerMoveWatcher->deleteLater();
         computerMoveWatcher = nullptr;
         applyComputerMove(bestmove);
@@ -294,7 +294,7 @@ void MainWindow::runComputerTurn()
     }));
 }
 
-void MainWindow::applyComputerMove(const Move &bestmove)
+void MainWindow::applyComputerMove(Move &bestmove)
 {
     if(bestmove.fx == -1)
     {

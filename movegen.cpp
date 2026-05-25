@@ -5,8 +5,8 @@
 #include <cctype>
 #include <vector>
 using namespace std;
-void makemove(Move m);
-void undomove(Move m);
+void makemove(Move &m);
+void undomove(Move &m);
 bool whitepawnmove(int fx, int fy, int tx, int ty);
 bool blackpawnmove(int fx, int fy, int tx, int ty);
 bool bishopmove(int fx, int fy, int tx, int ty);
@@ -139,7 +139,18 @@ bool queenmove(int fx, int fy, int tx, int ty) {
     return bishopmove(fx, fy, tx, ty) || rookmove(fx, fy, tx, ty);
 }
 bool kingmove(int fx, int fy, int tx, int ty) {
-    return abs(fx - tx) <= 1 && abs(fy - ty) <= 1;
+    if(abs(fx - tx) <= 1 && abs(fy - ty) <= 1) {
+        return true; // Normal king move
+    }
+    if(board[fx][fy]=='K'&&whitekingmoved==false){
+        if(ty==6&&tx==7&&fy==4&&fx==7&&board[7][5]=='.'&&board[7][6]=='.'&&whitekingrookmoved==false&&whitekingmoved==false){
+            return true;
+        }
+        if(ty==2&&tx==7&&fy==4&&fx==7&&board[7][3]=='.'&&board[7][2]=='.'&&board[7][1]=='.'&&whitequeenrookmoved==false&&whitekingmoved==false){
+            return true;
+        }
+    }
+    return false;
 }
 bool whitepawnattack(int fx, int fy, int tx, int ty) {
     return (tx == fx - 1 && abs(fy - ty) == 1);
@@ -229,31 +240,157 @@ std::vector<Move> generatemoves(int side) {
     }
     return moves;
 }
-void makemove(Move m){
+void makemove(Move &m){
     char piece=board[m.fx][m.fy];
+    m.prevenpassantrow=enpassantrow;
+    m.prevenpassantcol=enpassantcol;
+    if(piece=='k'||piece=='K'){
+        m.prevkingmoved=(isupper(piece)?whitekingmoved:blackkingmoved);
+        m.prevkingrookmoved=(isupper(piece)?whitekingrookmoved:blackkingrookmoved);
+        m.prevqueenrookmoved=(isupper(piece)?whitequeenrookmoved:blackqueenrookmoved);
+    }
+     if(piece=='R'||piece=='r'){
+        // queenside rook
+        if((isupper(piece) && m.fx==7 && m.fy==0) || (islower(piece) && m.fx==0 && m.fy==0))
+            m.prevqueenrookmoved=(isupper(piece)?whitequeenrookmoved:blackqueenrookmoved);
+        if((isupper(piece) && m.fx==7 && m.fy==7) || (islower(piece) && m.fx==0 && m.fy==7))
+            m.prevkingrookmoved=(isupper(piece)?whitekingrookmoved:blackkingrookmoved);
+    }
+    enpassantcol=-1;
+    enpassantrow=-1;
     board[m.tx][m.ty]=piece;
     board[m.fx][m.fy]='.';
     if(piece=='K'){ 
         whitekingrow = m.tx;
         whitekingcol = m.ty;
+        if(m.fx==7&&m.fy==4&&m.tx==7&&m.ty==6){
+            m.castling=true;
+            whitekingrookmoved=true;
+            board[7][5]='R';
+            board[7][7]='.';
+        }
+        if(m.fx==7&&m.fy==4&&m.tx==7&&m.ty==2){
+            m.castling=true;
+            whitequeenrookmoved=true;
+            board[7][3]='R';
+            board[7][0]='.';
+        }
+        whitekingmoved=true;
     }
     if(piece=='k'){ 
         blackkingrow = m.tx;
         blackkingcol = m.ty;
+        if(m.fx==0&&m.fy==4&&m.tx==0&&m.ty==6){
+            m.castling=true;
+            blackkingrookmoved=true;
+            board[0][5]='r';
+            board[0][7]='.';
+        }
+        if(m.fx==0&&m.fy==4&&m.tx==0&&m.ty==2){
+            m.castling=true;
+            blackqueenrookmoved=true;
+            board[0][3]='r';
+            board[0][0]='.';
+        }
+        blackkingmoved=true;
+    }
+    if(piece=='R'){
+
+    // queenside rook
+    if(m.fx==7 && m.fy==0)
+        whitequeenrookmoved=true;
+
+    // kingside rook
+    if(m.fx==7 && m.fy==7)
+        whitekingrookmoved=true;
+    }
+    if(piece=='r'){
+        // queenside rook
+        if(m.fx==0 && m.fy==0)
+            blackqueenrookmoved=true;
+
+        // kingside rook
+        if(m.fx==0 && m.fy==7)
+            blackkingrookmoved=true;
+    }
+    if(m.tx==7&&m.ty==0&&m.cpiece=='R'){
+        whitequeenrookmoved=true;
+    }
+    if(m.tx==7&&m.ty==7&&m.cpiece=='R'){
+        whitekingrookmoved=true;
+    }
+    if(m.tx==0&&m.ty==0&&m.cpiece=='r'){
+    
+        blackqueenrookmoved=true;
+    }
+    if(m.tx==0&&m.ty==7&&m.cpiece=='r'){
+        blackkingrookmoved=true;
+    }
+    if(piece=='P'&&m.fx==6&&m.tx==4){
+        enpassantrow=5;
+        enpassantcol=m.fy;
+    }
+    if(piece=='p'&&m.fx==1&&m.tx==3){
+        enpassantrow=2;
+        enpassantcol=m.fy;
     }
 }
-void undomove(Move m){
+void undomove(Move &m){
     char piece=board[m.tx][m.ty];
     board[m.fx][m.fy]=piece;
     board[m.tx][m.ty]=m.cpiece;
     if(piece=='K'){ 
         whitekingrow = m.fx;
         whitekingcol = m.fy;
+        if(m.castling && m.fx==7&&m.fy==4&&m.tx==7&&m.ty==6){
+            board[7][5]='.';
+            board[7][7]='R';
+        }
+        if(m.castling&& m.fx==7&&m.fy==4&&m.tx==7&&m.ty==2){
+            board[7][3]='.';
+            board[7][0]='R';
+        }
     }
     if(piece=='k'){ 
         blackkingrow = m.fx;
         blackkingcol = m.fy;
+        if(m.castling&& m.fx==0&&m.fy==4&&m.tx==0&&m.ty==6){
+            board[0][5]='.';
+            board[0][7]='r';
+        }
+        if(m.castling&& m.fx==0&&m.fy==4&&m.tx==0&&m.ty==2){
+            board[0][3]='.';
+            board[0][0]='r';
+        }
     }
+    if(piece=='K'||piece=='k'){
+        if(isupper(piece)){
+            whitekingmoved=m.prevkingmoved;
+            whitekingrookmoved=m.prevkingrookmoved;
+            whitequeenrookmoved=m.prevqueenrookmoved;
+        }
+        else{
+            blackkingmoved=m.prevkingmoved;
+            blackkingrookmoved=m.prevkingrookmoved;
+            blackqueenrookmoved=m.prevqueenrookmoved;
+        }
+    }
+    if(piece=='R'||piece=='r'){
+        if(isupper(piece)){
+            if(m.fx==7 && m.fy==0)
+                whitequeenrookmoved=m.prevqueenrookmoved;
+            if(m.fx==7 && m.fy==7)
+                whitekingrookmoved=m.prevkingrookmoved;
+        }
+        else{
+            if(m.fx==0 && m.fy==0)
+                blackqueenrookmoved=m.prevqueenrookmoved;
+            if(m.fx==0 && m.fy==7)
+                blackkingrookmoved=m.prevkingrookmoved;
+        }
+    }
+    enpassantrow=m.prevenpassantrow;
+    enpassantcol=m.prevenpassantcol;
 }
 int evaluate(){
     int score=0;
@@ -295,7 +432,7 @@ int alphabeta(int depth,int alpha, int beta, bool white){
 
     if(white){
         int maxi = -kMateScore - 1;
-        for(Move m : moves){
+        for(Move &m : moves){
             makemove(m);
             int score = alphabeta(depth-1, alpha, beta, false);
             undomove(m);
@@ -309,7 +446,7 @@ int alphabeta(int depth,int alpha, int beta, bool white){
     } 
     else {
         int mini = kMateScore + 1;
-        for(Move m : moves){
+        for(Move &m : moves){
             makemove(m);
             int score = alphabeta(depth-1, alpha, beta, true);
             undomove(m);
@@ -331,7 +468,7 @@ Move findbestmove(bool white,int depth){
     }
     Move bestmove = moves[0];
     int bestscore = white ? (-kMateScore - 1) : (kMateScore + 1);
-    for(Move m : moves){
+    for(Move &m : moves){
         makemove(m);
         int score = alphabeta(depth-1, -kMateScore - 1, kMateScore + 1, !white);
         undomove(m);
