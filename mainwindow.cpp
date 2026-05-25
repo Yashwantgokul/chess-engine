@@ -9,14 +9,111 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QIcon>
 #include <QMessageBox>
 #include <QGridLayout>
 #include <QHash>
+#include <QMediaDevices>
 #include <QPushButton>
 #include <QSize>
+#include <QSoundEffect>
+#include <QTimer>
+#include <QtConcurrent>
+#include <cctype>
+
+// ============================================
+// SOUND POOL — implementation
+// ============================================
+
+void SoundPool::init(const QString &filePath, QObject *parent)
+{
+    if(filePath.isEmpty()) return;
+
+    const QUrl url = QUrl::fromLocalFile(filePath);
+    players.reserve(kPoolSize);
+
+    for(int i = 0; i < kPoolSize; ++i)
+    {
+        QSoundEffect *sfx = new QSoundEffect(parent);
+        sfx->setSource(url);
+        sfx->setVolume(1.0f);
+        sfx->setLoopCount(1);
+        players.append(sfx);
+    }
+}
+
+void SoundPool::play()
+{
+    if(players.isEmpty()) return;
+
+    const QAudioDevice currentOutput = QMediaDevices::defaultAudioOutput();
+
+    // Walk the pool to find a player that has finished or never started.
+    for(int i = 0; i < players.size(); ++i)
+    {
+        QSoundEffect *sfx = players[(next + i) % players.size()];
+        if(!sfx->isPlaying())
+        {
+            sfx->setAudioDevice(currentOutput);
+            sfx->play();
+            next = (next + i + 1) % players.size();
+            return;
+        }
+    }
+
+    // All instances are playing (very rapid moves) — use round-robin.
+    // QSoundEffect::play() on an already-playing instance restarts it
+    // cleanly without volume interference.
+    players[next]->setAudioDevice(currentOutput);
+    players[next]->play();
+    next = (next + 1) % players.size();
+}
+
+void SoundPool::setAudioDevice(const QAudioDevice &device)
+{
+    for(QSoundEffect *sfx : players)
+    {
+        sfx->setAudioDevice(device);
+    }
+}
 
 namespace {
+
+QString findRuntimeFile(const QString &fileName)
+{
+    QDir appDir(QCoreApplication::applicationDirPath());
+    for(int i = 0; i < 6; ++i)
+    {
+        const QString candidate = appDir.filePath(fileName);
+        if(QFile::exists(candidate))
+        {
+            return candidate;
+        }
+
+        if(!appDir.cdUp())
+        {
+            break;
+        }
+    }
+
+    QDir cwd(QDir::currentPath());
+    for(int i = 0; i < 6; ++i)
+    {
+        const QString candidate = cwd.filePath(fileName);
+        if(QFile::exists(candidate))
+        {
+            return candidate;
+        }
+
+        if(!cwd.cdUp())
+        {
+            break;
+        }
+    }
+
+    return QString();
+}
 
 QString findPieceIconFile(char piece)
 {
@@ -103,6 +200,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     // DRAW PIECES
     drawBoard();
+    initializeSounds();
+
+    checkFlashTimer = new QTimer(this);
+    checkFlashTimer->setInterval(350);
+    connect(checkFlashTimer, &QTimer::timeout, this, [this]() {
+        checkFlashOn = !checkFlashOn;
+        updateBoardHighlights();
+    });
+
+    updateCheckState();
+    updateBoardHighlights();
 
     setWindowTitle("Chess Engine");
 
@@ -110,6 +218,129 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 // ============================================
+// SOUND
+// ============================================
+
+void MainWindow::initializeSounds()
+{
+    QString moveSoundPath = findRuntimeFile("move-self.wav");
+    if(moveSoundPath.isEmpty()) moveSoundPath = findRuntimeFile("move-self.mp3");
+
+    QString captureSoundPath = findRuntimeFile("capture.wav");
+    if(captureSoundPath.isEmpty()) captureSoundPath = findRuntimeFile("capture.mp3");
+
+    QString checkSoundPath = findRuntimeFile("move-check.wav");
+    if(checkSoundPath.isEmpty()) checkSoundPath = findRuntimeFile("move-check.mp3");
+
+    moveSoundPool.init(moveSoundPath, this);
+    captureSoundPool.init(captureSoundPath, this);
+    checkSoundPool.init(checkSoundPath, this);
+
+    mediaDevices = new QMediaDevices(this);
+    connect(mediaDevices, &QMediaDevices::audioOutputsChanged, this, [this]() {
+        refreshAudioOutputDevice();
+    });
+
+    refreshAudioOutputDevice();
+}
+
+void MainWindow::refreshAudioOutputDevice()
+{
+    const QAudioDevice selectedOutput = QMediaDevices::defaultAudioOutput();
+
+    moveSoundPool.setAudioDevice(selectedOutput);
+    captureSoundPool.setAudioDevice(selectedOutput);
+    checkSoundPool.setAudioDevice(selectedOutput);
+}
+
+void MainWindow::playMoveSound(char capturedPiece, bool gaveCheck)
+{
+    if(gaveCheck)
+    {
+        checkSoundPool.play();
+    }
+    else if(capturedPiece != '.')
+    {
+        captureSoundPool.play();
+    }
+    else
+    {
+        moveSoundPool.play();
+    }
+}
+
+void MainWindow::runComputerTurn()
+{
+    if(computerMoveWatcher != nullptr)
+    {
+        return;
+    }
+
+    computerMoveWatcher = new QFutureWatcher<Move>(this);
+    connect(computerMoveWatcher, &QFutureWatcher<Move>::finished, this, [this]() {
+        if(computerMoveWatcher == nullptr)
+        {
+            return;
+        }
+
+        const Move bestmove = computerMoveWatcher->result();
+        computerMoveWatcher->deleteLater();
+        computerMoveWatcher = nullptr;
+        applyComputerMove(bestmove);
+    });
+
+    computerMoveWatcher->setFuture(QtConcurrent::run([]() {
+        return findbestmove(false,3);
+    }));
+}
+
+void MainWindow::applyComputerMove(const Move &bestmove)
+{
+    if(bestmove.fx == -1)
+    {
+        if(ischeck(0)){
+            QMessageBox::information(this, "Game Over", "Checkmate — You win!");
+        } else {
+            QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
+        }
+
+        selectedRow = -1;
+        selectedCol = -1;
+        hasLastComputerMove = false;
+        updateCheckState();
+        updateBoardHighlights();
+        computerTurnPending = false;
+        return;
+    }
+
+    makemove(bestmove);
+    drawBoard();
+
+    hasLastComputerMove = true;
+    computerFromRow = bestmove.fx;
+    computerFromCol = bestmove.fy;
+    computerToRow = bestmove.tx;
+    computerToCol = bestmove.ty;
+
+    updateCheckState();
+    updateBoardHighlights();
+    playMoveSound(bestmove.cpiece, ischeck(1));
+
+    auto playerMoves = generatemoves(true);
+    if(playerMoves.empty()){
+        if(ischeck(1)){
+            QMessageBox::information(this, "Game Over", "Checkmate — You lose.");
+        } else {
+            QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
+        }
+        selectedRow = -1;
+        selectedCol = -1;
+        updateCheckState();
+        updateBoardHighlights();
+    }
+
+    computerTurnPending = false;
+}
 // DESTRUCTOR
 // ============================================
 
@@ -195,6 +426,82 @@ void MainWindow::resetBoardColors()
 }
 
 // ============================================
+// CHECK STATE
+// ============================================
+
+void MainWindow::updateCheckState()
+{
+    checkedKingRow = -1;
+    checkedKingCol = -1;
+
+    if(ischeck(1))
+    {
+        checkedKingRow = whitekingrow;
+        checkedKingCol = whitekingcol;
+    }
+    else if(ischeck(0))
+    {
+        checkedKingRow = blackkingrow;
+        checkedKingCol = blackkingcol;
+    }
+
+    if(checkedKingRow != -1)
+    {
+        checkFlashOn = true;
+        if(!checkFlashTimer->isActive())
+        {
+            checkFlashTimer->start();
+        }
+    }
+    else
+    {
+        checkFlashOn = false;
+        if(checkFlashTimer->isActive())
+        {
+            checkFlashTimer->stop();
+        }
+    }
+}
+
+// ============================================
+// BOARD HIGHLIGHTS
+// ============================================
+
+void MainWindow::updateBoardHighlights()
+{
+    resetBoardColors();
+
+    if(hasLastComputerMove)
+    {
+        squares[computerFromRow][computerFromCol]->setStyleSheet(
+            "background-color: #f7ea62;"
+            "border:none;"
+            );
+
+        squares[computerToRow][computerToCol]->setStyleSheet(
+            "background-color: #f2d64b;"
+            "border:none;"
+            );
+    }
+
+    if(selectedRow != -1 && selectedCol != -1)
+    {
+        squares[selectedRow][selectedCol]->setStyleSheet(
+            "background-color: #f6f669;"
+            "border:none;"
+            );
+    }
+
+    if(checkedKingRow != -1 && checkedKingCol != -1)
+    {
+        const char *checkColor = checkFlashOn ? "#ef5350" : "#ff8a80";
+        squares[checkedKingRow][checkedKingCol]->setStyleSheet(
+            QString("background-color: %1;border:none;").arg(checkColor)
+            );
+    }
+}
+
+// ============================================
 // DRAW BOARD
 // ============================================
 
@@ -263,6 +570,11 @@ QString MainWindow::getPieceIconPath(char piece)
 
 void MainWindow::handleSquareClick()
 {
+    if(computerTurnPending)
+    {
+        return;
+    }
+
     QPushButton *clickedButton =
         qobject_cast<QPushButton*>(sender());
 
@@ -293,14 +605,15 @@ void MainWindow::handleSquareClick()
             return;
         }
 
+        // Human always plays white in this UI.
+        if(!std::isupper(static_cast<unsigned char>(board[row][col])))
+        {
+            return;
+        }
+
         selectedRow = row;
         selectedCol = col;
-
-        // HIGHLIGHT
-        squares[row][col]->setStyleSheet(
-            "background-color: yellow;"
-            "border:none;"
-            );
+        updateBoardHighlights();
     }
 
     // ========================================
@@ -309,6 +622,14 @@ void MainWindow::handleSquareClick()
 
     else
     {
+        if(!std::isupper(static_cast<unsigned char>(board[selectedRow][selectedCol])))
+        {
+            selectedRow = -1;
+            selectedCol = -1;
+            updateBoardHighlights();
+            return;
+        }
+
         // LEGAL MOVE CHECK
         if(islegalmove(
                 selectedRow,
@@ -328,44 +649,23 @@ void MainWindow::handleSquareClick()
             // PLAYER MOVE
             makemove(m);
             drawBoard();
-            // COMPUTER MOVE
-            Move bestmove = findbestmove(false,3);
-            if(bestmove.fx == -1)
-            {
-                // No legal move for black: checkmate or stalemate
-                if(ischeck(0)){
-                    QMessageBox::information(this, "Game Over", "Checkmate — You win!");
-                } else {
-                    QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
-                }
-                selectedRow = -1;
-                selectedCol = -1;
-                resetBoardColors();
-                return;
-            }
-            else
-            {
-                makemove(bestmove);
-                drawBoard();
-                // After engine move, check if player has any legal replies
-                auto playerMoves = generatemoves(true);
-                if(playerMoves.empty()){
-                    if(ischeck(1)){
-                        QMessageBox::information(this, "Game Over", "Checkmate — You lose.");
-                    } else {
-                        QMessageBox::information(this, "Game Over", "Stalemate — Draw.");
-                    }
-                    selectedRow = -1;
-                    selectedCol = -1;
-                    resetBoardColors();
-                    return;
-                }
-            }
+            updateCheckState();
+            updateBoardHighlights();
+            playMoveSound(m.cpiece, ischeck(0));
+
+            selectedRow = -1;
+            selectedCol = -1;
+            updateBoardHighlights();
+
+            computerTurnPending = true;
+            QTimer::singleShot(computerMoveDelayMs, this, [this]() {
+                runComputerTurn();
+            });
+            return;
         }
         // RESET
         selectedRow = -1;
         selectedCol = -1;
-
-        resetBoardColors();
+        updateBoardHighlights();
     }
 }

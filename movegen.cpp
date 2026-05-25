@@ -1,5 +1,6 @@
 #include "movegen.h"
 #include "board.h"
+#include <algorithm>
 #include <cmath>
 #include <cctype>
 #include <vector>
@@ -17,6 +18,9 @@ bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
     bool valid = false;
+    if(target == 'K' || target == 'k') {
+        return false;
+    }
     if (piece == '.' || (isupper(piece) && isupper(target)) || (islower(piece) && islower(target))) {
         return false;
     }
@@ -272,50 +276,41 @@ int evaluate(){
     }
     return score;
 }
+
+namespace {
+constexpr int kMateScore = 1000000;
+}
+
 int minimax(int depth, bool white){
-    if(depth==0){
-        return evaluate();
-    }
     vector<Move> moves = generatemoves(white);
     if(moves.empty()){
         if(ischeck(white?1:0)){
-            return white?-1000000:1000000; // Checkmate
+            // Faster mates are preferred by keeping score farther from zero.
+            return white ? (-kMateScore + depth) : (kMateScore - depth);
         }
         return 0; // Stalemate
     }
+    if(depth==0){
+        return evaluate();
+    }
+
     if(white){
-        int maxi=-1000001;
+        int maxi = -kMateScore - 1;
         for(Move m : moves){
             makemove(m);
-            int score=minimax(depth-1,false);
-            if(ischeck(0)){
-                vector<Move> replyMoves = generatemoves(false);
-                if(replyMoves.empty()){
-                    score = 1000000;
-                } else {
-                    score += 50;
-                }
-            }
+            int score = minimax(depth-1,false);
             undomove(m);
-            maxi=max(maxi,score);
+            maxi = max(maxi,score);
         }
         return maxi;
     } 
     else {
-        int mini=1000001;
+        int mini = kMateScore + 1;
         for(Move m : moves){
             makemove(m);
-            int score=minimax(depth-1,true);
-            if(ischeck(1)){
-                vector<Move> replyMoves = generatemoves(true);
-                if(replyMoves.empty()){
-                    score = -1000000;
-                } else {
-                    score -= 50;
-                }
-            }
+            int score = minimax(depth-1,true);
             undomove(m);
-            mini=min(mini,score);
+            mini = min(mini,score);
         }
         return mini;
     }
@@ -328,18 +323,10 @@ Move findbestmove(bool white,int depth){
         return m;
     }
     Move bestmove = moves[0];
-    int bestscore = white ? -1000000 : 1000000;
+    int bestscore = white ? (-kMateScore - 1) : (kMateScore + 1);
     for(Move m : moves){
         makemove(m);
-        int score=minimax(depth-1,!white);
-        if(white ? ischeck(0) : ischeck(1)){
-            vector<Move> replyMoves = generatemoves(white ? false : true);
-            if(replyMoves.empty()){
-                score = white ? 1000000 : -1000000;
-            } else {
-                score += white ? 50 : -50;
-            }
-        }
+        int score = minimax(depth-1,!white);
         undomove(m);
         if((white && score > bestscore) || (!white && score < bestscore)){
             bestscore = score;

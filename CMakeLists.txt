@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(chessengine LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets LinguistTools)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Multimedia Concurrent LinguistTools)
 
 qt_standard_project_setup()
 
@@ -24,6 +24,8 @@ target_link_libraries(chessengine
     PRIVATE
         Qt::Core
         Qt::Widgets
+        Qt::Multimedia
+        Qt::Concurrent
 )
 
 install(TARGETS chessengine
