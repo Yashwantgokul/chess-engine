@@ -27,6 +27,7 @@ struct Move
     // en passant restoration
     int prevenpassantrow = -1;
     int prevenpassantcol = -1;
+    int score=0;
 };
 std::vector<Move> generatemoves(int side);
 void makemove(Move &m);

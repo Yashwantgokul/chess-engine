@@ -500,8 +500,46 @@ vector<char> promotionPieces(bool white)
                  : vector<char>{'q', 'r', 'b', 'n'};
 }
 }
+int piecevalue(char piece){
+    int value=0;
+    switch(toupper(piece)){
+        case 'P': value=100; break;
+        case 'N': value=320; break;
+        case 'B': value=330; break;
+        case 'R': value=500; break;
+        case 'Q': value=900; break;
+        case 'K': value=200000; break;
+    }
+    return value;
+}
+int scoremove(Move &m){
+    int score=0;
+    char attacker = board[m.fx][m.fy];
+    char target = m.cpiece;
+    if(target != '.')
+    {
+        score+=100000;
+        score += 10 * piecevalue(target) - piecevalue(attacker);
+    }
+     if(m.promotion)
+    {
+        score+=80000;
+        score += piecevalue(m.promotedpiece) - piecevalue(attacker);
+    }
+     if(m.castling)
+    {
+        score += 50; // Arbitrary bonus for castling
+    }
+    return score;
+}
 int alphabeta(int depth,int alpha, int beta, bool white){
     vector<Move> moves = generatemoves(white);
+    for(Move &m : moves) {
+        m.score = scoremove(m);
+    }
+    sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
+        return a.score > b.score; // Sort in descending order of score
+    });
     if(moves.empty()){
         if(ischeck(white?1:0)){
             // Faster mates are preferred by keeping score farther from zero.
