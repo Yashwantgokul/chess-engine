@@ -10,6 +10,8 @@ qt_add_executable(chessengine
     main.cpp
     mainwindow.cpp
     mainwindow.h
+    promotionpopup.cpp
+    promotionpopup.h
     mainwindow.ui
     board.cpp board.h
     movegen.cpp movegen.h

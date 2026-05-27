@@ -4,6 +4,7 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "promotionpopup.h"
 #include "board.h"
 #include "movegen.h"
 #include <QCoreApplication>
@@ -14,6 +15,7 @@
 #include <QMessageBox>
 #include <QGridLayout>
 #include <QHash>
+#include <QEventLoop>
 #include <QMediaDevices>
 #include <QPushButton>
 #include <QSize>
@@ -192,6 +194,16 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    QMessageBox modeDialog(this);
+    modeDialog.setWindowTitle("Game Mode");
+    modeDialog.setText("Choose a mode before starting:");
+    QPushButton *vsComputerButton = modeDialog.addButton("Play vs Computer", QMessageBox::AcceptRole);
+    QPushButton *twoPlayerButton = modeDialog.addButton("2 Player", QMessageBox::ActionRole);
+    modeDialog.setDefaultButton(vsComputerButton);
+    modeDialog.exec();
+
+    playVsComputer = (modeDialog.clickedButton() != twoPlayerButton);
+
     // INITIALIZE ENGINE BOARD
     initializeBoard();
 
@@ -212,7 +224,7 @@ MainWindow::MainWindow(QWidget *parent)
     updateCheckState();
     updateBoardHighlights();
 
-    setWindowTitle("Chess Engine");
+    setWindowTitle(playVsComputer ? "Chess Engine - Vs Computer" : "Chess Engine - 2 Player");
 
     setFixedSize(8 * 80, 8 * 80);
 }
@@ -306,7 +318,7 @@ void MainWindow::applyComputerMove(Move &bestmove)
 
         selectedRow = -1;
         selectedCol = -1;
-        hasLastComputerMove = false;
+        hasLastMove = false;
         updateCheckState();
         updateBoardHighlights();
         computerTurnPending = false;
@@ -314,13 +326,14 @@ void MainWindow::applyComputerMove(Move &bestmove)
     }
 
     makemove(bestmove);
+    whiteToMove = true;
     drawBoard();
 
-    hasLastComputerMove = true;
-    computerFromRow = bestmove.fx;
-    computerFromCol = bestmove.fy;
-    computerToRow = bestmove.tx;
-    computerToCol = bestmove.ty;
+    hasLastMove = true;
+    lastMoveFromRow = bestmove.fx;
+    lastMoveFromCol = bestmove.fy;
+    lastMoveToRow = bestmove.tx;
+    lastMoveToCol = bestmove.ty;
 
     updateCheckState();
     updateBoardHighlights();
@@ -471,14 +484,14 @@ void MainWindow::updateBoardHighlights()
 {
     resetBoardColors();
 
-    if(hasLastComputerMove)
+    if(hasLastMove)
     {
-        squares[computerFromRow][computerFromCol]->setStyleSheet(
+        squares[lastMoveFromRow][lastMoveFromCol]->setStyleSheet(
             "background-color: #f7ea62;"
             "border:none;"
             );
 
-        squares[computerToRow][computerToCol]->setStyleSheet(
+        squares[lastMoveToRow][lastMoveToCol]->setStyleSheet(
             "background-color: #f2d64b;"
             "border:none;"
             );
@@ -564,6 +577,15 @@ QString MainWindow::getPieceIconPath(char piece)
     return findPieceIconFile(piece);
 }
 
+char MainWindow::choosePromotionPiece(bool isWhitePiece, const QPoint &anchorGlobalPos, int squareSize)
+{
+    PromotionPopup popup(isWhitePiece, this);
+    // White promotes at row 0 (top)   — show popup BELOW the square.
+    // Black promotes at row 7 (bottom) — show popup ABOVE the square.
+    const bool showAbove = !isWhitePiece;
+    return popup.execNearSquare(anchorGlobalPos, squareSize, showAbove);
+}
+
 // ============================================
 // HANDLE CLICK
 // ============================================
@@ -605,10 +627,19 @@ void MainWindow::handleSquareClick()
             return;
         }
 
-        // Human always plays white in this UI.
-        if(!std::isupper(static_cast<unsigned char>(board[row][col])))
+        if(whiteToMove)
         {
-            return;
+            if(!std::isupper(static_cast<unsigned char>(board[row][col])))
+            {
+                return;
+            }
+        }
+        else
+        {
+            if(!std::islower(static_cast<unsigned char>(board[row][col])))
+            {
+                return;
+            }
         }
 
         selectedRow = row;
@@ -622,12 +653,25 @@ void MainWindow::handleSquareClick()
 
     else
     {
-        if(!std::isupper(static_cast<unsigned char>(board[selectedRow][selectedCol])))
+        if(whiteToMove)
         {
-            selectedRow = -1;
-            selectedCol = -1;
-            updateBoardHighlights();
-            return;
+            if(!std::isupper(static_cast<unsigned char>(board[selectedRow][selectedCol])))
+            {
+                selectedRow = -1;
+                selectedCol = -1;
+                updateBoardHighlights();
+                return;
+            }
+        }
+        else
+        {
+            if(!std::islower(static_cast<unsigned char>(board[selectedRow][selectedCol])))
+            {
+                selectedRow = -1;
+                selectedCol = -1;
+                updateBoardHighlights();
+                return;
+            }
         }
 
         // LEGAL MOVE CHECK
@@ -646,16 +690,82 @@ void MainWindow::handleSquareClick()
             m.ty = col;
 
             m.cpiece = board[row][col];
+
+            const char movingPiece = board[selectedRow][selectedCol];
+            const bool needsPromotion =
+                    (movingPiece == 'P' && row == 0) ||
+                    (movingPiece == 'p' && row == 7);
+
+            if(needsPromotion)
+            {
+                const QPoint popupPosition = squares[row][col]->mapToGlobal(QPoint(0, 0));
+                const char promotedPiece = choosePromotionPiece(
+                            std::isupper(static_cast<unsigned char>(movingPiece)),
+                            popupPosition,
+                            squares[row][col]->height());
+
+                if(promotedPiece == '.')
+                {
+                    return;
+                }
+
+                m.promotion = true;
+                m.promotedpiece = promotedPiece;
+            }
+
             // PLAYER MOVE
             makemove(m);
             drawBoard();
+            hasLastMove = true;
+            lastMoveFromRow = m.fx;
+            lastMoveFromCol = m.fy;
+            lastMoveToRow = m.tx;
+            lastMoveToCol = m.ty;
             updateCheckState();
             updateBoardHighlights();
-            playMoveSound(m.cpiece, ischeck(0));
+            const bool gaveCheck = whiteToMove ? ischeck(0) : ischeck(1);
+            playMoveSound(m.cpiece, gaveCheck);
+
+            whiteToMove = !whiteToMove;
 
             selectedRow = -1;
             selectedCol = -1;
             updateBoardHighlights();
+
+            const auto nextMoves = generatemoves(whiteToMove);
+            if(nextMoves.empty())
+            {
+                if(ischeck(whiteToMove ? 1 : 0))
+                {
+                    if(playVsComputer)
+                    {
+                        if(whiteToMove)
+                        {
+                            QMessageBox::information(this, "Game Over", "Checkmate - You lose.");
+                        }
+                        else
+                        {
+                            QMessageBox::information(this, "Game Over", "Checkmate - You win!");
+                        }
+                    }
+                    else
+                    {
+                        QMessageBox::information(this,
+                                                 "Game Over",
+                                                 whiteToMove ? "Checkmate - Black wins." : "Checkmate - White wins.");
+                    }
+                }
+                else
+                {
+                    QMessageBox::information(this, "Game Over", "Stalemate - Draw.");
+                }
+                return;
+            }
+
+            if(!playVsComputer)
+            {
+                return;
+            }
 
             computerTurnPending = true;
             QTimer::singleShot(computerMoveDelayMs, this, [this]() {

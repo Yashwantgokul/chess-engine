@@ -8,6 +8,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QString>
+#include <QPoint>
 #include <QFutureWatcher>
 #include <QTimer>
 #include <QSoundEffect>
@@ -70,12 +71,12 @@ private:
     int selectedRow = -1;
     int selectedCol = -1;
 
-    bool hasLastComputerMove = false;
+    bool hasLastMove = false;
 
-    int computerFromRow = -1;
-    int computerFromCol = -1;
-    int computerToRow   = -1;
-    int computerToCol   = -1;
+    int lastMoveFromRow = -1;
+    int lastMoveFromCol = -1;
+    int lastMoveToRow   = -1;
+    int lastMoveToCol   = -1;
 
     int checkedKingRow = -1;
     int checkedKingCol = -1;
@@ -85,6 +86,8 @@ private:
 
     bool computerTurnPending = false;
     int  computerMoveDelayMs = 450;
+    bool playVsComputer = true;
+    bool whiteToMove = true;
 
     QFutureWatcher<Move> *computerMoveWatcher = nullptr;
 
@@ -111,6 +114,7 @@ private:
     void runComputerTurn();
     void applyComputerMove(Move &bestmove);
     void playMoveSound(char capturedPiece, bool gaveCheck);
+    char choosePromotionPiece(bool isWhitePiece, const QPoint &anchorGlobalPos, int squareSize);
     QString getPieceUnicode(char piece);
     QString getPieceIconPath(char piece);
 };

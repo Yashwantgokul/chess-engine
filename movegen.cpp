@@ -48,6 +48,25 @@ bool islegalmove(int fx, int fy, int tx, int ty) {
     // Add specific move rules for each piece type here
     if(!valid) // Placeholder for legal move checking
         return false;
+    bool enPassantCapture = false;
+    int enPassantCaptureRow = -1;
+    char enPassantCapturedPiece = '.';
+
+    if(piece == 'P' && tx == enpassantrow && ty == enpassantcol && target == '.' && abs(fy - ty) == 1 && fx - 1 == tx && board[fx][ty] == 'p')
+    {
+        enPassantCapture = true;
+        enPassantCaptureRow = fx;
+        enPassantCapturedPiece = board[enPassantCaptureRow][ty];
+        board[enPassantCaptureRow][ty] = '.';
+    }
+    if(piece == 'p' && tx == enpassantrow && ty == enpassantcol && target == '.' && abs(fy - ty) == 1 && fx + 1 == tx && board[fx][ty] == 'P')
+    {
+        enPassantCapture = true;
+        enPassantCaptureRow = fx;
+        enPassantCapturedPiece = board[enPassantCaptureRow][ty];
+        board[enPassantCaptureRow][ty] = '.';
+    }
+
     char captured = board[tx][ty];
     board[tx][ty] = piece;
     board[fx][fy] = '.';
@@ -67,6 +86,10 @@ bool islegalmove(int fx, int fy, int tx, int ty) {
     }
     board[fx][fy] = piece;
     board[tx][ty] = captured;
+    if(enPassantCapture)
+    {
+        board[enPassantCaptureRow][ty] = enPassantCapturedPiece;
+    }
     whitekingrow = oldwhitekingrow;
     whitekingcol = oldwhitekingcol;
     blackkingrow = oldblackkingrow;
@@ -84,6 +107,9 @@ bool whitepawnmove(int fx, int fy, int tx, int ty) {
     if (tx == fx - 1 && abs(fy - ty) == 1 && islower(board[tx][ty])) {
         return true; // Capture move
     }
+    if (tx == fx - 1 && abs(fy - ty) == 1 && tx == enpassantrow && ty == enpassantcol && board[tx][ty] == '.' && board[fx][ty] == 'p') {
+        return true; // En passant capture
+    }
     return false;
 }
 bool blackpawnmove(int fx, int fy, int tx, int ty) {
@@ -95,6 +121,9 @@ bool blackpawnmove(int fx, int fy, int tx, int ty) {
     }
     if (tx == fx + 1 && abs(fy - ty) == 1 && isupper(board[tx][ty])) {
         return true; // Capture move
+    }
+    if (tx == fx + 1 && abs(fy - ty) == 1 && tx == enpassantrow && ty == enpassantcol && board[tx][ty] == '.' && board[fx][ty] == 'P') {
+        return true; // En passant capture
     }
     return false;
 }
@@ -232,6 +261,10 @@ std::vector<Move> generatemoves(int side) {
                         m.tx=x;
                         m.ty=y;
                         m.cpiece=board[x][y];
+                        if((piece == 'P' && x == 0) || (piece == 'p' && x == 7))
+                        {
+                            m.promotion = true;
+                        }
                         moves.push_back(m);
                     }
                 }
@@ -242,6 +275,13 @@ std::vector<Move> generatemoves(int side) {
 }
 void makemove(Move &m){
     char piece=board[m.fx][m.fy];
+    const bool requestedPromotion = m.promotion;
+    const char requestedPromotedPiece = m.promotedpiece;
+    m.movedpiece = piece;
+    m.castling = false;
+    m.enpassant = false;
+    m.promotion = requestedPromotion;
+    m.promotedpiece = requestedPromotedPiece;
     m.prevenpassantrow=enpassantrow;
     m.prevenpassantcol=enpassantcol;
     if(piece=='k'||piece=='K'){
@@ -258,6 +298,20 @@ void makemove(Move &m){
     }
     enpassantcol=-1;
     enpassantrow=-1;
+
+    if(piece == 'P' && m.tx == m.prevenpassantrow && m.ty == m.prevenpassantcol && m.cpiece == '.' && abs(m.ty - m.fy) == 1 && board[m.fx][m.ty] == 'p')
+    {
+        m.enpassant = true;
+        m.cpiece = board[m.fx][m.ty];
+        board[m.fx][m.ty] = '.';
+    }
+    if(piece == 'p' && m.tx == m.prevenpassantrow && m.ty == m.prevenpassantcol && m.cpiece == '.' && abs(m.ty - m.fy) == 1 && board[m.fx][m.ty] == 'P')
+    {
+        m.enpassant = true;
+        m.cpiece = board[m.fx][m.ty];
+        board[m.fx][m.ty] = '.';
+    }
+
     board[m.tx][m.ty]=piece;
     board[m.fx][m.fy]='.';
     if(piece=='K'){ 
@@ -334,11 +388,34 @@ void makemove(Move &m){
         enpassantrow=2;
         enpassantcol=m.fy;
     }
+    if(piece == 'P' && m.tx == 0)
+    {
+        m.promotion = true;
+        if(m.promotedpiece == '.' || !isupper(static_cast<unsigned char>(m.promotedpiece)))
+        {
+            m.promotedpiece = 'Q';
+        }
+        board[m.tx][m.ty] = m.promotedpiece;
+    }
+    if(piece == 'p' && m.tx == 7)
+    {
+        m.promotion = true;
+        if(m.promotedpiece == '.' || !islower(static_cast<unsigned char>(m.promotedpiece)))
+        {
+            m.promotedpiece = 'q';
+        }
+        board[m.tx][m.ty] = m.promotedpiece;
+    }
 }
 void undomove(Move &m){
-    char piece=board[m.tx][m.ty];
+    char piece=m.movedpiece;
     board[m.fx][m.fy]=piece;
     board[m.tx][m.ty]=m.cpiece;
+    if(m.enpassant)
+    {
+        board[m.tx][m.ty]='.';
+        board[m.fx][m.ty]=m.cpiece;
+    }
     if(piece=='K'){ 
         whitekingrow = m.fx;
         whitekingcol = m.fy;
@@ -416,6 +493,12 @@ int evaluate(){
 
 namespace {
 constexpr int kMateScore = 1000000;
+
+vector<char> promotionPieces(bool white)
+{
+    return white ? vector<char>{'Q', 'R', 'B', 'N'}
+                 : vector<char>{'q', 'r', 'b', 'n'};
+}
 }
 int alphabeta(int depth,int alpha, int beta, bool white){
     vector<Move> moves = generatemoves(white);
@@ -433,13 +516,33 @@ int alphabeta(int depth,int alpha, int beta, bool white){
     if(white){
         int maxi = -kMateScore - 1;
         for(Move &m : moves){
-            makemove(m);
-            int score = alphabeta(depth-1, alpha, beta, false);
-            undomove(m);
-            maxi = max(maxi, score);
-            alpha = max(alpha, score);
-            if(beta <= alpha){
-                break;
+            if(m.promotion && m.promotedpiece == '.'){
+                int bestPromotionScore = -kMateScore - 1;
+                for(char promotionPiece : promotionPieces(true)){
+                    Move trial = m;
+                    trial.promotedpiece = promotionPiece;
+                    makemove(trial);
+                    int score = alphabeta(depth-1, alpha, beta, false);
+                    undomove(trial);
+                    bestPromotionScore = max(bestPromotionScore, score);
+                    alpha = max(alpha, bestPromotionScore);
+                    if(beta <= alpha){
+                        break;
+                    }
+                }
+                maxi = max(maxi, bestPromotionScore);
+                if(beta <= alpha){
+                    break;
+                }
+            } else {
+                makemove(m);
+                int score = alphabeta(depth-1, alpha, beta, false);
+                undomove(m);
+                maxi = max(maxi, score);
+                alpha = max(alpha, score);
+                if(beta <= alpha){
+                    break;
+                }
             }
         }
         return maxi;
@@ -447,13 +550,33 @@ int alphabeta(int depth,int alpha, int beta, bool white){
     else {
         int mini = kMateScore + 1;
         for(Move &m : moves){
-            makemove(m);
-            int score = alphabeta(depth-1, alpha, beta, true);
-            undomove(m);
-            mini = min(mini,score);
-            beta = min(beta, score);
-            if(beta <= alpha){
-                break;
+            if(m.promotion && m.promotedpiece == '.'){
+                int bestPromotionScore = kMateScore + 1;
+                for(char promotionPiece : promotionPieces(false)){
+                    Move trial = m;
+                    trial.promotedpiece = promotionPiece;
+                    makemove(trial);
+                    int score = alphabeta(depth-1, alpha, beta, true);
+                    undomove(trial);
+                    bestPromotionScore = min(bestPromotionScore, score);
+                    beta = min(beta, bestPromotionScore);
+                    if(beta <= alpha){
+                        break;
+                    }
+                }
+                mini = min(mini, bestPromotionScore);
+                if(beta <= alpha){
+                    break;
+                }
+            } else {
+                makemove(m);
+                int score = alphabeta(depth-1, alpha, beta, true);
+                undomove(m);
+                mini = min(mini,score);
+                beta = min(beta, score);
+                if(beta <= alpha){
+                    break;
+                }
             }
         }
         return mini;
@@ -469,12 +592,26 @@ Move findbestmove(bool white,int depth){
     Move bestmove = moves[0];
     int bestscore = white ? (-kMateScore - 1) : (kMateScore + 1);
     for(Move &m : moves){
-        makemove(m);
-        int score = alphabeta(depth-1, -kMateScore - 1, kMateScore + 1, !white);
-        undomove(m);
-        if((white && score > bestscore) || (!white && score < bestscore)){
-            bestscore = score;
-            bestmove = m;
+        if(m.promotion && m.promotedpiece == '.'){
+            for(char promotionPiece : promotionPieces(white)){
+                Move trial = m;
+                trial.promotedpiece = promotionPiece;
+                makemove(trial);
+                int score = alphabeta(depth-1, -kMateScore - 1, kMateScore + 1, !white);
+                undomove(trial);
+                if((white && score > bestscore) || (!white && score < bestscore)){
+                    bestscore = score;
+                    bestmove = trial;
+                }
+            }
+        } else {
+            makemove(m);
+            int score = alphabeta(depth-1, -kMateScore - 1, kMateScore + 1, !white);
+            undomove(m);
+            if((white && score > bestscore) || (!white && score < bestscore)){
+                bestscore = score;
+                bestmove = m;
+            }
         }
     }
     return bestmove;

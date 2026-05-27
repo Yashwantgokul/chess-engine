@@ -14,6 +14,8 @@ struct Move
     bool castling = false;
     bool promotion = false;
     bool enpassant = false;
+    char promotedpiece = '.';
+    char movedpiece = '.';
 
     // restore previous state
 
