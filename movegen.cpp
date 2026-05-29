@@ -479,11 +479,36 @@ int evaluate(){
             int value=0;
             switch(toupper(piece)){
                 case 'P': value=100; break;
-                case 'N': value=320; break;
-                case 'B': value=330; break;
-                case 'R': value=500; break;
-                case 'Q': value=900; break;
-                case 'K': value=200000; break;
+                case 'N': {
+                    value=320; 
+                    // Knight position evaluation using a simple table
+                    value += knightTable[i][j];
+                    break;
+                }
+                case 'B': {
+                    value=330; 
+                    // Bishop position evaluation using a simple table
+                    value += bishopTable[i][j];
+                    break;
+                };
+                case 'R': {
+                    value=500; 
+                    // Rook position evaluation using a simple table
+                    value += rookTable[i][j];
+                    break;
+                };
+                case 'Q':{
+                    value=900; 
+                    // Queen position evaluation using a simple table
+                    value += queenTable[i][j];
+                    break;
+                };
+                case 'K': {
+                    value=200000; 
+                    // King position evaluation using a simple table
+                    value += kingTable[i][j];
+                    break;
+                }
             }
             score+=(isupper(piece)?value:-value);
         }
