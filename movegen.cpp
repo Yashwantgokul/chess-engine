@@ -14,6 +14,8 @@ bool rookmove(int fx, int fy, int tx, int ty);
 bool knightmove(int fx, int fy, int tx, int ty);
 bool queenmove(int fx, int fy, int tx, int ty); 
 bool kingmove(int fx, int fy, int tx, int ty);
+int mobility(bool white);
+bool isEnPassantMove(int fx, int fy, int tx, int ty, char piece);
 bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
@@ -181,6 +183,15 @@ bool kingmove(int fx, int fy, int tx, int ty) {
     }
     return false;
 }
+bool isEnPassantMove(int fx, int fy, int tx, int ty, char piece) {
+    if(piece == 'P') {
+        return tx == enpassantrow && ty == enpassantcol && board[tx][ty] == '.' && abs(fy - ty) == 1 && fx - 1 == tx && board[fx][ty] == 'p';
+    }
+    if(piece == 'p') {
+        return tx == enpassantrow && ty == enpassantcol && board[tx][ty] == '.' && abs(fy - ty) == 1 && fx + 1 == tx && board[fx][ty] == 'P';
+    }
+    return false;
+}
 bool whitepawnattack(int fx, int fy, int tx, int ty) {
     return (tx == fx - 1 && abs(fy - ty) == 1);
 }
@@ -261,6 +272,7 @@ std::vector<Move> generatemoves(int side) {
                         m.tx=x;
                         m.ty=y;
                         m.cpiece=board[x][y];
+                        m.enpassant = isEnPassantMove(i, j, x, y, piece);
                         if((piece == 'P' && x == 0) || (piece == 'p' && x == 7))
                         {
                             m.promotion = true;
@@ -474,6 +486,7 @@ int evaluate(){
     for(int i=0;i<8;i++){
         for(int j=0;j<8;j++){
             char piece=board[i][j];
+            
             if(piece=='.')
                 continue;
             int value=0;
@@ -513,6 +526,9 @@ int evaluate(){
             score+=(isupper(piece)?value:-value);
         }
     }
+    int whiteMobility = mobility(true);
+    int blackMobility = mobility(false);
+    score += 10 * (whiteMobility - blackMobility); // Mobility is less important than material, hence the smaller weight
     return score;
 }
 
@@ -541,10 +557,15 @@ int scoremove(Move &m){
     int score=0;
     char attacker = board[m.fx][m.fy];
     char target = m.cpiece;
-    if(target != '.')
+    if(target != '.' || m.enpassant)
     {
         score+=100000;
-        score += 10 * piecevalue(target) - piecevalue(attacker);
+        char capturedPiece = target;
+        if(capturedPiece == '.' && m.enpassant)
+        {
+            capturedPiece = board[m.fx][m.ty];
+        }
+        score += 10 * piecevalue(capturedPiece) - piecevalue(attacker);
     }
      if(m.promotion)
     {
@@ -678,4 +699,10 @@ Move findbestmove(bool white,int depth){
         }
     }
     return bestmove;
+}
+int mobility(bool white){
+    int mobilityScore=0;
+    vector<Move> moves = generatemoves(white);
+    mobilityScore += moves.size();
+    return mobilityScore;
 }
