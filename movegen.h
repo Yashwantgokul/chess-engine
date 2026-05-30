@@ -24,6 +24,14 @@ struct Move
     bool prevkingrookmoved = false;
     bool prevqueenrookmoved = false;
 
+    // full castling-right snapshot (needed for reliable undo during search)
+    bool prevwhitekingmoved = false;
+    bool prevwhitekingrookmoved = false;
+    bool prevwhitequeenrookmoved = false;
+    bool prevblackkingmoved = false;
+    bool prevblackkingrookmoved = false;
+    bool prevblackqueenrookmoved = false;
+
     // en passant restoration
     int prevenpassantrow = -1;
     int prevenpassantcol = -1;

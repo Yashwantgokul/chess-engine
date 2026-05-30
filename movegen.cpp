@@ -16,6 +16,8 @@ bool queenmove(int fx, int fy, int tx, int ty);
 bool kingmove(int fx, int fy, int tx, int ty);
 int mobility(bool white);
 bool isEnPassantMove(int fx, int fy, int tx, int ty, char piece);
+bool isCastlingMove(int fx, int fy, int tx, int ty, char piece);
+int quiescence(int alpha, int beta, bool white);
 bool islegalmove(int fx, int fy, int tx, int ty) {
     char piece = board[fx][fy];
     char target = board[tx][ty];
@@ -181,6 +183,14 @@ bool kingmove(int fx, int fy, int tx, int ty) {
             return true;
         }
     }
+    if(board[fx][fy]=='k'&&blackkingmoved==false){
+        if(ty==6&&tx==0&&fy==4&&fx==0&&board[0][5]=='.'&&board[0][6]=='.'&&blackkingrookmoved==false&&blackkingmoved==false){
+            return true;
+        }
+        if(ty==2&&tx==0&&fy==4&&fx==0&&board[0][3]=='.'&&board[0][2]=='.'&&board[0][1]=='.'&&blackqueenrookmoved==false&&blackkingmoved==false){
+            return true;
+        }
+    }
     return false;
 }
 bool isEnPassantMove(int fx, int fy, int tx, int ty, char piece) {
@@ -189,6 +199,15 @@ bool isEnPassantMove(int fx, int fy, int tx, int ty, char piece) {
     }
     if(piece == 'p') {
         return tx == enpassantrow && ty == enpassantcol && board[tx][ty] == '.' && abs(fy - ty) == 1 && fx + 1 == tx && board[fx][ty] == 'P';
+    }
+    return false;
+}
+bool isCastlingMove(int fx, int fy, int tx, int ty, char piece) {
+    if(piece == 'K') {
+        return fx == 7 && fy == 4 && tx == 7 && (ty == 6 || ty == 2);
+    }
+    if(piece == 'k') {
+        return fx == 0 && fy == 4 && tx == 0 && (ty == 6 || ty == 2);
     }
     return false;
 }
@@ -272,6 +291,7 @@ std::vector<Move> generatemoves(int side) {
                         m.tx=x;
                         m.ty=y;
                         m.cpiece=board[x][y];
+                        m.castling = isCastlingMove(i, j, x, y, piece);
                         m.enpassant = isEnPassantMove(i, j, x, y, piece);
                         if((piece == 'P' && x == 0) || (piece == 'p' && x == 7))
                         {
@@ -294,6 +314,12 @@ void makemove(Move &m){
     m.enpassant = false;
     m.promotion = requestedPromotion;
     m.promotedpiece = requestedPromotedPiece;
+    m.prevwhitekingmoved = whitekingmoved;
+    m.prevwhitekingrookmoved = whitekingrookmoved;
+    m.prevwhitequeenrookmoved = whitequeenrookmoved;
+    m.prevblackkingmoved = blackkingmoved;
+    m.prevblackkingrookmoved = blackkingrookmoved;
+    m.prevblackqueenrookmoved = blackqueenrookmoved;
     m.prevenpassantrow=enpassantrow;
     m.prevenpassantcol=enpassantcol;
     if(piece=='k'||piece=='K'){
@@ -452,32 +478,12 @@ void undomove(Move &m){
             board[0][0]='r';
         }
     }
-    if(piece=='K'||piece=='k'){
-        if(isupper(piece)){
-            whitekingmoved=m.prevkingmoved;
-            whitekingrookmoved=m.prevkingrookmoved;
-            whitequeenrookmoved=m.prevqueenrookmoved;
-        }
-        else{
-            blackkingmoved=m.prevkingmoved;
-            blackkingrookmoved=m.prevkingrookmoved;
-            blackqueenrookmoved=m.prevqueenrookmoved;
-        }
-    }
-    if(piece=='R'||piece=='r'){
-        if(isupper(piece)){
-            if(m.fx==7 && m.fy==0)
-                whitequeenrookmoved=m.prevqueenrookmoved;
-            if(m.fx==7 && m.fy==7)
-                whitekingrookmoved=m.prevkingrookmoved;
-        }
-        else{
-            if(m.fx==0 && m.fy==0)
-                blackqueenrookmoved=m.prevqueenrookmoved;
-            if(m.fx==0 && m.fy==7)
-                blackkingrookmoved=m.prevkingrookmoved;
-        }
-    }
+    whitekingmoved = m.prevwhitekingmoved;
+    whitekingrookmoved = m.prevwhitekingrookmoved;
+    whitequeenrookmoved = m.prevwhitequeenrookmoved;
+    blackkingmoved = m.prevblackkingmoved;
+    blackkingrookmoved = m.prevblackkingrookmoved;
+    blackqueenrookmoved = m.prevblackqueenrookmoved;
     enpassantrow=m.prevenpassantrow;
     enpassantcol=m.prevenpassantcol;
 }
@@ -490,40 +496,46 @@ int evaluate(){
             if(piece=='.')
                 continue;
             int value=0;
+            int row = isupper(piece) ? i : 7 - i;
             switch(toupper(piece)){
-                case 'P': value=100; break;
+                case 'P': {
+                    value=100;
+                    value += pawnTable[row][j];
+                    break;
+                }
                 case 'N': {
                     value=320; 
                     // Knight position evaluation using a simple table
-                    value += knightTable[i][j];
+                    value += knightTable[row][j];
                     break;
                 }
                 case 'B': {
                     value=330; 
                     // Bishop position evaluation using a simple table
-                    value += bishopTable[i][j];
+                    value += bishopTable[row][j];
                     break;
                 };
                 case 'R': {
                     value=500; 
                     // Rook position evaluation using a simple table
-                    value += rookTable[i][j];
+                    value += rookTable[row][j];
                     break;
                 };
                 case 'Q':{
                     value=900; 
                     // Queen position evaluation using a simple table
-                    value += queenTable[i][j];
+                    value += queenTable[row][j];
                     break;
                 };
                 case 'K': {
                     value=200000; 
                     // King position evaluation using a simple table
-                    value += kingTable[i][j];
+                    value += kingTable[row][j];
                     break;
                 }
             }
             score+=(isupper(piece)?value:-value);
+
         }
     }
     int whiteMobility = mobility(true);
@@ -574,9 +586,58 @@ int scoremove(Move &m){
     }
      if(m.castling)
     {
-        score += 50; // Arbitrary bonus for castling
+        score += 300;
     }
     return score;
+}
+int quiescence(int alpha, int beta, bool white) {
+    int standPat = evaluate();
+
+    if(white) {
+        if(standPat >= beta) {
+            return standPat;
+        }
+        alpha = max(alpha, standPat);
+    } else {
+        if(standPat <= alpha) {
+            return standPat;
+        }
+        beta = min(beta, standPat);
+    }
+
+    vector<Move> moves = generatemoves(white);
+    vector<Move> captures;
+    captures.reserve(moves.size());
+    for(Move &m : moves) {
+        if(m.cpiece != '.' || m.enpassant) {
+            m.score = scoremove(m);
+            captures.push_back(m);
+        }
+    }
+
+    sort(captures.begin(), captures.end(), [](const Move &a, const Move &b) {
+        return a.score > b.score;
+    });
+
+    for(Move &m : captures) {
+        makemove(m);
+        int score = quiescence(alpha, beta, !white);
+        undomove(m);
+
+        if(white) {
+            if(score >= beta) {
+                return score;
+            }
+            alpha = max(alpha, score);
+        } else {
+            if(score <= alpha) {
+                return score;
+            }
+            beta = min(beta, score);
+        }
+    }
+
+    return white ? alpha : beta;
 }
 int alphabeta(int depth,int alpha, int beta, bool white){
     vector<Move> moves = generatemoves(white);
@@ -594,7 +655,7 @@ int alphabeta(int depth,int alpha, int beta, bool white){
         return 0; // Stalemate
     }
     if(depth==0){
-        return evaluate();
+        return quiescence(alpha, beta, white);
     }
 
     if(white){

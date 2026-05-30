@@ -302,7 +302,7 @@ void MainWindow::runComputerTurn()
     });
 
     computerMoveWatcher->setFuture(QtConcurrent::run([]() {
-        return findbestmove(false,4);
+        return findbestmove(false,3);
     }));
 }
 
